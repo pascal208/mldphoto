@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hamming(7,4) — Simulateur BSC</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --panel: #16161f;
+    --border: #2a2a3a;
+    --accent: #4af0c4;
+    --accent2: #f04a7a;
+    --accent3: #c0a0ff;
+    --text: #e8e8f0;
+    --muted: #6a6a80;
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    padding: 2rem;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 40% at 20% -10%, rgba(74, 240, 196, 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 110%, rgba(192, 160, 255, 0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  header {
+    margin-bottom: 3rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.5rem;
+  }
+
+  .header-tag {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-tag::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .header-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 560px;
+  }
+
+  /* GRID LAYOUT */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 700px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* SIDEBAR */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  .card-title {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--accent3);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .card-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* CONTROLS */
+  .ctrl-group { margin-bottom: 1.25rem; }
+  .ctrl-group:last-child { margin-bottom: 0; }
+
+  .ctrl-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+
+  .ctrl-name {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .ctrl-value {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .ctrl-value span {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  #p-slider::-webkit-slider-track {
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent2) 100%);
+  }
+
+  /* PRESET BUTTONS */
+  .presets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .preset-btn {
+    padding: 6px 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .preset-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(74,240,196,0.08); }
+
+  /* RUN BUTTON */
+  .run-btn {
+    width: 100%;
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: rgba(74, 240, 196, 0.1);
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .run-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(74,240,196,0.1);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s;
+  }
+
+  .run-btn:hover::before { transform: scaleX(1); }
+  .run-btn:hover { box-shadow: 0 0 20px rgba(74,240,196,0.15); }
+  .run-btn:active { transform: scale(0.98); }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--border); color: var(--muted); background: none; }
+  .run-btn:disabled::before { display: none; }
+
+  /* UPLOAD */
+  .upload-area {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .upload-area:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  /* STATS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+
+  .stat-cell.full { grid-column: span 2; }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-num {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .stat-num.danger { color: var(--accent2); }
+  .stat-num.ok { color: var(--accent); }
+
+  /* PROGRESS */
+  .progress-wrap {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(to right, var(--accent), var(--accent3));
+    border-radius: 2px;
+    transition: width 0.2s;
+    width: 0%;
+  }
+
+  .status-text {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    min-height: 16px;
+  }
+
+  /* RIGHT PANEL — CANVASES */
+  .image-area { display: flex; flex-direction: column; gap: 16px; }
+
+  .canvas-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .canvas-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .canvas-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .canvas-label .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .canvas-label.orig { color: var(--accent); }
+  .canvas-label.recv { color: var(--accent2); }
+  .canvas-label.orig .dot { background: var(--accent); }
+  .canvas-label.recv .dot { background: var(--accent2); }
+
+  canvas {
+    width: 100%;
+    height: auto;
+    border-radius: 6px;
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  /* SNR GAUGE */
+  .quality-bar-wrap {
+    margin-top: 4px;
+  }
+
+  .quality-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .quality-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border);
+    overflow: hidden;
+  }
+
+  .quality-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(to right, var(--accent2), #f0a04a, var(--accent));
+    width: 100%;
+    transition: clip-path 0.5s;
+  }
+
+  /* THEORY BOX */
+  .theory {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  .theory strong { color: var(--accent3); font-weight: 500; }
+
+  .theory code {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  /* MATRIX DISPLAY */
+  .matrix-row {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    margin: 4px 0;
+  }
+
+  .matrix-cell {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+
+  .matrix-cell.one { background: rgba(74,240,196,0.15); color: var(--accent); }
+  .matrix-cell.zero { background: var(--surface); color: var(--muted); }
+
+  .matrix-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  /* FOOTER */
+  footer {
+    margin-top: 3rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-in {
+    animation: fadeIn 0.5s ease forwards;
+  }
+</style>
+</head>
+<body>
+
+<div class="container animate-in">
+  <header>
+    <div class="header-tag">Théorie des codes &mdash; canal bruité</div>
+    <h1>Hamming<span>(7,4)</span><br>Simulateur BSC</h1>
+    <p class="header-desc">Chaque pixel est encodé nibble par nibble avec le code de Hamming(7,4). Des erreurs sont injectées sur le canal binaire symétrique, puis le décodeur MLD corrige les erreurs simples via le syndrome.</p>
+  </header>
+
+  <div class="main-grid">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+      <!-- UPLOAD -->
+      <div class="card">
+        <div class="card-title">Image source</div>
+        <div class="upload-area" onclick="document.getElementById('file-in').click()">
+          <div style="font-size:22px;margin-bottom:6px;">&#8679;</div>
+          Charger une image<br>
+          <span style="font-size:11px;color:#444456">ou utiliser la démo ci-dessous</span>
+        </div>
+        <input type="file" id="file-in" accept="image/*" style="display:none" onchange="loadImage(event)">
+
+        <div style="margin-top:12px">
+          <div class="ctrl-header">
+            <span class="ctrl-name">Résolution</span>
+            <span class="ctrl-value" id="res-display">64 <span>px</span></span>
+          </div>
+          <input type="range" id="res-slider" min="32" max="128" step="8" value="64"
+                 oninput="onResChange()">
+          <div class="presets" style="margin-top:8px">
+            <button class="preset-btn" onclick="setRes(32)">32px</button>
+            <button class="preset-btn active" onclick="setRes(64)">64px</button>
+            <button class="preset-btn" onclick="setRes(128)">128px</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CANAL -->
+      <div class="card">
+        <div class="card-title">Canal BSC</div>
+        <div class="ctrl-group">
+          <div class="ctrl-header">
+            <span class="ctrl-name">Probabilité d'erreur p</span>
+            <span class="ctrl-value" id="p-display">0.05</span>
+          </div>
+          <input type="range" id="p-slider" min="0" max="0.50" step="0.01" value="0.05"
+                 oninput="onPChange()">
+          <div class="presets" style="margin-top:8px">
+            <button class="preset-btn active" onclick="setP(0.05)">p=0.05</button>
+            <button class="preset-btn" onclick="setP(0.15)">p=0.15</button>
+            <button class="preset-btn" onclick="setP(0.30)">p=0.30</button>
+          </div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-fill" id="prog-fill"></div>
+        </div>
+        <div class="status-text" id="status-txt"></div>
+
+        <button class="run-btn" id="run-btn" onclick="simulate()" style="margin-top:8px">
+          &#9654; &nbsp;Simuler la transmission
+        </button>
+      </div>
+
+      <!-- STATS -->
+      <div class="card">
+        <div class="card-title">Statistiques</div>
+        <div class="stats-grid">
+          <div class="stat-cell">
+            <div class="stat-label">Bits TX</div>
+            <div class="stat-num" id="s-bits">—</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">Bits flippés</div>
+            <div class="stat-num" id="s-flipped">—</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">Corrigés</div>
+            <div class="stat-num ok" id="s-corr">—</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-label">Non corrigibles</div>
+            <div class="stat-num danger" id="s-uncorr">—</div>
+          </div>
+          <div class="stat-cell full">
+            <div class="stat-label">Qualité de reconstruction</div>
+            <div class="quality-bar-wrap">
+              <div class="quality-header">
+                <span>0%</span>
+                <span id="quality-pct">—</span>
+                <span>100%</span>
+              </div>
+              <div class="quality-bar">
+                <div class="quality-fill" id="quality-fill" style="clip-path: inset(0 100% 0 0)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MATRICES -->
+      <div class="card">
+        <div class="card-title">Matrice génératrice G</div>
+        <p class="matrix-label">4 bits → 7 bits (données + parité)</p>
+        <div id="matrix-G"></div>
+        <div class="card-title" style="margin-top:1rem">Matrice de parité H</div>
+        <p class="matrix-label">syndrome = H·r mod 2</p>
+        <div id="matrix-H"></div>
+      </div>
+
+    </aside>
+
+    <!-- MAIN RIGHT -->
+    <div class="image-area">
+      <div class="canvas-pair">
+        <div class="canvas-wrap">
+          <div class="canvas-label orig"><div class="dot"></div>Image originale</div>
+          <canvas id="c-orig"></canvas>
+        </div>
+        <div class="canvas-wrap">
+          <div class="canvas-label recv"><div class="dot"></div>Après décodage MLD</div>
+          <canvas id="c-recv"></canvas>
+        </div>
+      </div>
+
+      <div class="theory">
+        <strong>Pipeline de transmission :</strong><br>
+        Pour chaque pixel (R,G,B), on découpe chaque octet en deux nibbles de 4 bits.
+        Chaque nibble est encodé via <code>c = G·m mod 2</code> → 7 bits transmis.
+        Sur le BSC, chaque bit est flippé avec probabilité <code>p</code>.
+        Le décodeur calcule <code>s = H·r mod 2</code> — si <code>s ≠ 0</code>,
+        il pointe la position erronée et la corrige. Une erreur simple est <strong>toujours corrigible</strong> ;
+        deux erreurs dans le même bloc produisent une correction vers la mauvaise position
+        → pixel corrompu.<br><br>
+        <strong>Capacité du code :</strong> distance de Hamming d = 3, soit t = 1 erreur corrigible par bloc de 7 bits.
+        Rendement R = 4/7 ≈ 0.571.
+      </div>
+
+      <div id="diff-wrap" style="display:none">
+        <div class="canvas-wrap">
+          <div class="canvas-label" style="color: var(--accent3)">
+            <div class="dot" style="background:var(--accent3)"></div>Carte d'erreurs résiduelles
+          </div>
+          <canvas id="c-diff"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Hamming(7,4) &mdash; BSC Simulator</span>
+    <span>Tous les calculs sont effectués localement dans le navigateur</span>
+  </footer>
+</div>
+
+<script>
+/* ===== HAMMING(7,4) ===== */
+const G = [
+  [1,0,0,0,1,0,1],
+  [0,1,0,0,1,1,0],
+  [0,0,1,0,0,1,1],
+  [0,0,0,1,1,1,1]
+];
+const H = [
+  [1,0,1,0,1,0,1],
+  [0,1,1,0,0,1,1],
+  [0,0,0,1,1,1,1]
+];
+
+function renderMatrix(id, mat) {
+  const el = document.getElementById(id);
+  el.innerHTML = '';
+  mat.forEach(row => {
+    const d = document.createElement('div');
+    d.className = 'matrix-row';
+    row.forEach(v => {
+      const c = document.createElement('div');
+      c.className = 'matrix-cell ' + (v ? 'one' : 'zero');
+      c.textContent = v;
+      d.appendChild(c);
+    });
+    el.appendChild(d);
+  });
+}
+renderMatrix('matrix-G', G);
+renderMatrix('matrix-H', H);
+
+function encode(nibble) {
+  const c = [0,0,0,0,0,0,0];
+  for(let i=0;i<4;i++) for(let j=0;j<7;j++) c[j]^=nibble[i]*G[i][j];
+  return c;
+}
+
+function decode(r) {
+  const s = [0,0,0];
+  for(let i=0;i<3;i++) for(let j=0;j<7;j++) s[i]^=r[j]*H[i][j];
+  const errPos = s[0]*1 + s[1]*2 + s[2]*4 - 1;
+  const corr = [...r];
+  let corrected = 0;
+  if(errPos >= 0 && errPos < 7){ corr[errPos]^=1; corrected = 1; }
+  const s2 = [0,0,0];
+  for(let i=0;i<3;i++) for(let j=0;j<7;j++) s2[i]^=corr[j]*H[i][j];
+  const uncorr = s2.some(x=>x!==0);
+  return { data:[corr[0],corr[1],corr[2],corr[3]], uncorr, corrected };
+}
+
+function bsc(bits, p) {
+  let flipped = 0;
+  const out = bits.map(b => { if(Math.random()<p){ flipped++; return b^1; } return b; });
+  return { out, flipped };
+}
+
+function nibbleToBits(n) { return [(n>>3)&1,(n>>2)&1,(n>>1)&1,n&1]; }
+function bitsToNibble(b) { return (b[0]<<3)|(b[1]<<2)|(b[2]<<1)|b[3]; }
+
+/* ===== STATE ===== */
+let origPixels = null;
+let customImg = null;
+
+function buildDefaultImage(size) {
+  const d = new Uint8ClampedArray(size*size*4);
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
+    const i=(y*size+x)*4;
+    const nx=x/size, ny=y/size;
+    const cx=nx-0.5, cy=ny-0.5;
+    const r2=cx*cx+cy*cy;
+    const angle=Math.atan2(cy,cx);
+    const bands = Math.sin(Math.sqrt(r2)*18)*0.5+0.5;
+    const swirl = Math.sin(angle*5 + Math.sqrt(r2)*12)*0.5+0.5;
+    d[i]   = ((Math.sin(nx*11+2)*0.5+0.5)*200 + bands*55)|0;
+    d[i+1] = ((Math.cos(ny*9+1)*0.5+0.5)*180 + swirl*60)|0;
+    d[i+2] = ((Math.sin((nx+ny)*7)*0.5+0.5)*220 + (1-bands)*35)|0;
+    d[i+3] = 255;
+  }
+  return d;
+}
+
+function getSize() { return parseInt(document.getElementById('res-slider').value); }
+
+function drawOrig() {
+  const size = getSize();
+  const co = document.getElementById('c-orig');
+  co.width=size; co.height=size;
+  origPixels = customImg || buildDefaultImage(size);
+  const ctx = co.getContext('2d');
+  const id = ctx.createImageData(size,size);
+  for(let i=0;i<origPixels.length;i++) id.data[i]=origPixels[i];
+  ctx.putImageData(id,0,0);
+  const cr = document.getElementById('c-recv');
+  cr.width=size; cr.height=size;
+}
+
+function loadImage(evt) {
+  const file = evt.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const size = getSize();
+      const tmp = document.createElement('canvas');
+      tmp.width=size; tmp.height=size;
+      const ctx=tmp.getContext('2d');
+      ctx.drawImage(img,0,0,size,size);
+      customImg = ctx.getImageData(0,0,size,size).data;
+      drawOrig();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ===== UI BINDINGS ===== */
+function onPChange() {
+  const v = parseFloat(document.getElementById('p-slider').value).toFixed(2);
+  document.getElementById('p-display').textContent = v;
+  document.querySelectorAll('.presets:not(:last-of-type) .preset-btn').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.textContent.replace('p=','')) === parseFloat(v));
+  });
+}
+
+function setP(val) {
+  document.getElementById('p-slider').value = val;
+  onPChange();
+}
+
+function onResChange() {
+  const v = document.getElementById('res-slider').value;
+  document.getElementById('res-display').innerHTML = v + ' <span>px</span>';
+  customImg = null;
+  drawOrig();
+}
+
+function setRes(val) {
+  document.getElementById('res-slider').value = val;
+  onResChange();
+  document.querySelectorAll('[onclick^="setRes"]').forEach(b => {
+    b.classList.toggle('active', parseInt(b.textContent) === val);
+  });
+}
+
+function fmt(n) { return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'k':n; }
+
+/* ===== SIMULATE ===== */
+async function simulate() {
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  const p = parseFloat(document.getElementById('p-slider').value);
+  const size = getSize();
+  if(!origPixels) drawOrig();
+  const pixels = origPixels;
+  const total = size*size;
+  let bits=0, flipped=0, uncorr=0, corrected=0;
+  const out = new Uint8ClampedArray(pixels.length);
+  const chunk = Math.max(1, Math.floor(total/40));
+
+  for(let px=0; px<total; px++) {
+    const base = px*4;
+    for(let ch=0; ch<3; ch++) {
+      const byte = pixels[base+ch];
+      const encHi = encode(nibbleToBits((byte>>4)&0xF));
+      const encLo = encode(nibbleToBits(byte&0xF));
+      const all = [...encHi,...encLo];
+      bits += all.length;
+      const {out:rx, flipped:f} = bsc(all, p);
+      flipped += f;
+      const rHi = rx.slice(0,7), rLo = rx.slice(7,14);
+      const dHi = decode(rHi), dLo = decode(rLo);
+      if(dHi.uncorr) uncorr++; else if(dHi.corrected) corrected++;
+      if(dLo.uncorr) uncorr++; else if(dLo.corrected) corrected++;
+      out[base+ch] = (bitsToNibble(dHi.data)<<4)|bitsToNibble(dLo.data);
+    }
+    out[base+3] = 255;
+    if(px % chunk === 0) {
+      const pct = Math.round(px/total*100);
+      document.getElementById('prog-fill').style.width = pct+'%';
+      document.getElementById('status-txt').textContent = 'Encodage canal... '+pct+'%';
+      await new Promise(r=>setTimeout(r,0));
+    }
+  }
+
+  document.getElementById('prog-fill').style.width = '100%';
+  document.getElementById('status-txt').textContent = 'Terminé ✓';
+
+  const cr = document.getElementById('c-recv');
+  cr.width=size; cr.height=size;
+  const ctx2 = cr.getContext('2d');
+  const id2 = ctx2.createImageData(size,size);
+  for(let i=0;i<out.length;i++) id2.data[i]=out[i];
+  ctx2.putImageData(id2,0,0);
+
+  /* diff map */
+  const cd = document.getElementById('c-diff');
+  cd.width=size; cd.height=size;
+  const ctx3 = cd.getContext('2d');
+  const id3 = ctx3.createImageData(size,size);
+  for(let px=0; px<total; px++) {
+    const b=px*4;
+    const diff = Math.abs(pixels[b]-out[b])+Math.abs(pixels[b+1]-out[b+1])+Math.abs(pixels[b+2]-out[b+2]);
+    const v = Math.min(255, diff*3);
+    id3.data[b]=v; id3.data[b+1]=0; id3.data[b+2]=Math.min(255,diff*2); id3.data[b+3]=255;
+  }
+  ctx3.putImageData(id3,0,0);
+  document.getElementById('diff-wrap').style.display = 'block';
+
+  document.getElementById('s-bits').textContent = fmt(bits);
+  document.getElementById('s-flipped').textContent = fmt(flipped)+' ('+( flipped/bits*100).toFixed(1)+'%)';
+  document.getElementById('s-corr').textContent = fmt(corrected);
+  document.getElementById('s-uncorr').textContent = fmt(uncorr);
+
+  let totalPixErr = 0;
+  for(let px=0; px<total; px++) {
+    const b=px*4;
+    if(pixels[b]!==out[b]||pixels[b+1]!==out[b+1]||pixels[b+2]!==out[b+2]) totalPixErr++;
+  }
+  const quality = 1 - totalPixErr/total;
+  const qpct = (quality*100).toFixed(1)+'%';
+  document.getElementById('quality-pct').textContent = qpct;
+  document.getElementById('quality-fill').style.clipPath = 'inset(0 '+(100-quality*100).toFixed(1)+'% 0 0)';
+
+  btn.disabled = false;
+}
+
+/* ===== INIT ===== */
+drawOrig();
+</script>
+
+</body>
+</html>
